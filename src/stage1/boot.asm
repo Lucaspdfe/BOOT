@@ -107,13 +107,16 @@ start:
     xor ax, ax
     mov al, [BPB_SECTORS_PER_CLUSTER]
     mov [DAP_SECTORS], ax
+    mov word [DAP_OFFSET], STAGE2_LOAD_OFFSET
+    mov word [DAP_SEGMENT], STAGE2_LOAD_SEGMENT
     mov si, DAP
     mov ah, 42h
+    mov dl, [BPB_DRIVE_NUMBER]
     int 13h
     jc disk_error
 
-    mov si, 0x7E00
-    call puts
+    mov dl, [BPB_DRIVE_NUMBER]
+    jmp STAGE2_LOAD_SEGMENT:STAGE2_LOAD_OFFSET
 
     cli
     hlt
@@ -154,11 +157,11 @@ DAP:
                     db 16
                     db 0
 DAP_SECTORS:        dw 1
-                    dw 0x7E00
-                    dw 0
+DAP_OFFSET:         dw 0x7E00
+DAP_SEGMENT:        dw 0
 DAP_LBA:            dq 0
 
-STAGE2_NAME:        db "TEST    TXT"
+STAGE2_NAME:        db "STAGE2  BIN"
 
 STAGE2_LOAD_SEGMENT equ 0
 STAGE2_LOAD_OFFSET  equ 0x500
