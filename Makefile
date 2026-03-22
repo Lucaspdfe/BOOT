@@ -2,7 +2,7 @@ MTOOLARGS=-i $@@@1048576
 
 all: clean build/boot.img
 
-build/boot.img: build/stage1.bin build/stage2.bin
+build/boot.img: build/stage1.bin build/stage2.bin always
 	dd if=/dev/zero of=$@ bs=1M count=512
 	printf "label: dos\nlabel-id: 0x12345678\nunit: sectors\n\nstart=2048, type=c, bootable\n" | sfdisk $@
 	install-mbr $@
@@ -12,11 +12,14 @@ build/boot.img: build/stage1.bin build/stage2.bin
 	mcopy $(MTOOLARGS) ./test.txt ::
 	mcopy $(MTOOLARGS) ./build/stage2.bin ::
 
-build/stage1.bin: src/stage1/boot.asm
+build/stage1.bin: src/stage1/boot.asm always
 	nasm -f bin -o $@ $<
 
-build/stage2.bin:
+build/stage2.bin: always
 	@$(MAKE) -C src/stage2 BUILD_DIR=$(abspath build/) --no-print-directory
 
 clean:
 	rm -rf build/*
+
+always:
+	mkdir -p build
