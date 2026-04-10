@@ -32,7 +32,7 @@ sudo apt install build-essential wget bison flex libgmp3-dev libmpc-dev libmpfr-
 
 ### Build the toolchain
 
-Run:
+Run on root (use sudo or doas):
 
 ```bash
 make -f toolchain.mk toolchain
