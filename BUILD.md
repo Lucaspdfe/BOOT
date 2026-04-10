@@ -1,5 +1,7 @@
 # How to build
 
+First, this tutorial assumes you are running Debian/Ubuntu Linux, if you are on Windows, I recommend you use WSL and if you are on MacOS, you can try using Homebrew packages and running it, but it is not confirmed to work.
+
 To build, you'll need the following utilities:
 
 * `make`
