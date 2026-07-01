@@ -11,7 +11,7 @@ BUILD  = ./build
 
 PARTITION_START = 2048
 
-.PHONY: all stage1 img clean
+.PHONY: all stage1 stage2 img clean
 all: clean img
 
 img: stage1 stage2
