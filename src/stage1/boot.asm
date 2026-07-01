@@ -111,7 +111,7 @@ ERROR_MSG:            db "BOOTLOADER PANIC! Unable to load stage1.5!", 0Ah, 0Dh,
 LOADING_MSG:          db "Loading...", 0Ah, 0Dh, 0  
 
 times 510-($-$$) db 0
-dw AA55h
+dw 0xAA55
 
 ; skipping FSInfo, it messed up my code ):
 times 512 db 0
