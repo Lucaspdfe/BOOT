@@ -9,6 +9,8 @@ STAGE2     = ./build/stage2.bin
 STAGE2_DIR = ./src/stage2
 BUILD  = ./build
 
+PARTITION_START = 2048
+
 .PHONY: all stage1 img clean
 all: clean img
 
@@ -16,15 +18,15 @@ img: stage1
 	dd if=/dev/zero of=$(FINAL_IMG) bs=1M count=256
 
 	parted -s $(FINAL_IMG) mklabel msdos
-	parted -s $(FINAL_IMG) mkpart primary fat32 2048s 100%
+	parted -s $(FINAL_IMG) mkpart primary fat32 $(PARTITION_START)s 100%
 	parted -s $(FINAL_IMG) set 1 boot on
 
-	mkfs.fat -F 32 --offset=2048 $(FINAL_IMG)
+	mkfs.fat -F 32 --offset=$(PARTITION_START) -h $(PARTITION_START) $(FINAL_IMG)
 
 	install-mbr $(FINAL_IMG)
 
-	dd if=$(STAGE1) of=$(FINAL_IMG) bs=1 count=3 seek=1048576 conv=notrunc
-	dd if=$(STAGE1) of=$(FINAL_IMG) bs=1 skip=90 seek=1048666 conv=notrunc
+	dd if=$(STAGE1) of=$(FINAL_IMG) bs=1 count=3 seek=$$(($(PARTITION_START) * 512)) conv=notrunc
+	dd if=$(STAGE1) of=$(FINAL_IMG) bs=1 skip=90 seek=$$((($(PARTITION_START) * 512) + 90)) conv=notrunc
 
 stage1: $(STAGE1)
 $(STAGE1): always
