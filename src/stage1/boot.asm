@@ -123,13 +123,151 @@ times 512 db 0
 ; ------------------------------------------------
 
 start:
-    ; prints a smiley face (:
-    mov ah, 0Eh
-    mov al, '('
-    int 10h
+    ; first_data_sector = fat_boot->reserved_sector_count + (fat_boot->table_count * fat_boot_ext_32->table_size_32)
+    movzx eax, byte [BPB_FAT_COUNT]
+    imul eax, dword [BPB_SECTORS_PER_FAT32]             ; eax = fat_boot->table_count * fat_boot_ext_32->table_size_32
+    movzx ebx, word [BPB_RESERVED_SECTORS]
+    add eax, ebx                                        ; eax = fat_boot->reserved_sector_count + (fat_boot->table_count * fat_boot_ext_32->table_size_32), first_data_sector
+    add eax, [BPB_HIDDEN_SECTORS]                       ; adds forgotten hidden lba...
+    mov [FIRST_DATA_SECTOR], eax
 
-    mov ah, 0Eh
-    mov al, ':'
-    int 10h
+    ; cluster_to_sector calculation: first_sector_of_cluster = ((cluster - 2) * fat_boot->sectors_per_cluster) + first_data_sector
+    mov eax, [BPB_ROOT_CLUSTER]
+    sub eax, 2                                          ; eax = cluster - 2
+    movzx ebx, byte [BPB_SECTORS_PER_CLUSTER]
+    imul eax, ebx                                       ; eax = (cluster - 2) * fat_boot->sectors_per_cluster
+    add eax, [FIRST_DATA_SECTOR]                        ; eax = ((cluster - 2) * fat_boot->sectors_per_cluster) + first_data_sector, first_sector_of_cluster
+    
+    ; read root directory (reads only one cluster because no way I'm reading everything)
+    mov [DAP_LBA_QWORD], eax                            ; LBA = eax
+    mov dword [DAP_LBA_QWORD+4], 0 
+    mov word [DAP_COUNT_WORD], 1                        ; Count = 1 cluster
+    mov word [DAP_OFFSET_WORD],  0x7E00
+    mov word [DAP_SEGMENT_WORD], 0x0000                 ; address = 0x0000:0x7E00
+    mov si, DAP
+    mov ah, 42h
+    mov dl, [BPB_DRIVE_NUMBER]
+    int 13h
+    jc .disk_error
 
-    jmp $
+    cld
+
+    mov bx, 0x7E00
+.search_loop:
+    mov si, STAGE2_NAME
+    mov di, bx
+    mov cx, 11
+    repe cmpsb
+    jz .done_search
+    add bx, 32
+    cmp byte [bx], 0
+    je .not_found
+    jmp .search_loop
+.done_search:
+    movzx eax, word [bx+26]
+    movzx edx, word [bx+20]
+    shl edx, 16
+    or eax, edx
+    and eax, 0x0FFFFFFF                                 ; FAT32 uses only 28 bits
+    mov [CURRENT_CLUSTER], eax
+
+    mov bx, STAGE2_LOAD_OFFSET
+    ; CURRENT_CLUSTER = current cluster, ebx = load offset (add BPB_SECTORS_PER_CLUSTER * BPB_BYTES_PER_SECTOR) per loop
+.load_loop:
+    ; cluster_to_sector calculation: first_sector_of_cluster = ((cluster - 2) * fat_boot->sectors_per_cluster) + first_data_sector
+    mov eax, [CURRENT_CLUSTER]
+    sub eax, 2                                          ; eax = cluster - 2
+    movzx ecx, byte [BPB_SECTORS_PER_CLUSTER]
+    imul eax, ecx                                       ; eax = (cluster - 2) * fat_boot->sectors_per_cluster
+    add eax, [FIRST_DATA_SECTOR]                        ; eax = ((cluster - 2) * fat_boot->sectors_per_cluster) + first_data_sector, first_sector_of_cluster
+
+    ; read file
+    mov [DAP_LBA_QWORD], eax                            ; LBA = eax
+    mov dword [DAP_LBA_QWORD+4], 0
+    movzx ax, byte [BPB_SECTORS_PER_CLUSTER]
+    mov [DAP_COUNT_WORD], ax                            ; Count = 1 cluster
+    mov [DAP_OFFSET_WORD], bx
+    mov word [DAP_SEGMENT_WORD], STAGE2_LOAD_SEGMENT    ; address = STAGE2_LOAD_SEGMENT:STAGE2_LOAD_OFFSET
+    mov si, DAP
+    mov ah, 42h
+    mov dl, [BPB_DRIVE_NUMBER]
+    int 13h
+    jc .disk_error
+
+    ; get FAT sector: fat_sector = (hidden_sectors + reserved_sectors) + ((active_cluster * 4) / sector_size);
+    mov eax, [CURRENT_CLUSTER]
+    shl eax, 2                                          ; eax = active_cluster * 4
+    movzx ecx, word [BPB_BYTES_PER_SECTOR]
+    xor edx, edx
+    div ecx                                             ; eax = (active_cluster * 4) / sector_size
+    add eax, dword [BPB_HIDDEN_SECTORS]                 ; eax = hidden_sectors + ((active_cluster * 4) / sector_size)
+    movzx ecx, word [BPB_RESERVED_SECTORS]
+    add eax, ecx                                        ; eax = (hidden_sectors + reserved_sectors) + ((active_cluster * 4) / sector_size), fat_sector
+
+    mov [DAP_LBA_QWORD], eax                            ; LBA = eax
+    mov dword [DAP_LBA_QWORD+4], 0
+    mov word [DAP_COUNT_WORD], 1                             ; Count = 1 sector
+    mov word [DAP_OFFSET_WORD], 0x7E00
+    mov word [DAP_SEGMENT_WORD], 0x0000                 ; address = 0x0000:0x7E00
+    mov si, DAP
+    mov ah, 42h
+    mov dl, [BPB_DRIVE_NUMBER]
+    int 13h
+    jc .disk_error
+
+    ; get byte of the entry
+    mov eax, [CURRENT_CLUSTER]
+    shl eax, 2                                          ; eax = active_cluster * 4
+    movzx ecx, word [BPB_BYTES_PER_SECTOR]
+    xor edx, edx
+    div ecx                                             ; edx = (active_cluster * 4) % sector_size
+    add edx, 0x7E00
+    mov si, dx
+    mov eax, dword [si]
+    cmp eax, 0x0FFFFFF8
+    jae .done_loading
+    mov [CURRENT_CLUSTER], eax
+    movzx cx, byte [BPB_SECTORS_PER_CLUSTER]
+    imul cx, word [BPB_BYTES_PER_SECTOR]
+    add bx, cx
+    jmp .load_loop
+.done_loading:
+    mov dl, [BPB_DRIVE_NUMBER]
+    jmp STAGE2_LOAD_SEGMENT:STAGE2_LOAD_OFFSET
+
+    cli
+    hlt
+
+.not_found:
+    mov si, STAGE2_NOT_FOUND
+    call puts
+
+    cli
+    hlt
+
+.disk_error:
+    mov si, DISK_ERROR
+    call puts
+
+    mov al, ah
+    add al, '0'
+    mov ah, 0x0e
+    int 10h
+    cli
+    hlt
+
+MSG_LOADING:        db 'Loading...', 0x0D, 0x0A, 0
+DISK_ERROR:         db 'Disk read Failed: ', 0
+STAGE2_NOT_FOUND:   db 'STAGE2.BIN not found!', 0
+STAGE2_NAME:        db "STAGE2  BIN"
+FIRST_DATA_SECTOR:  dd 0
+CURRENT_CLUSTER:    dd 0
+
+
+STAGE2_LOAD_SEGMENT equ 0
+STAGE2_LOAD_OFFSET  equ 0x500
+
+%if ($-$$) > (6*512)
+    %error "Stage1.5 too big! Exceeds 6 sectors"
+%endif
+times (6*512)-($-$$) db 0

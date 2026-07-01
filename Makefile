@@ -14,7 +14,7 @@ PARTITION_START = 2048
 .PHONY: all stage1 img clean
 all: clean img
 
-img: stage1
+img: stage1 stage2
 	dd if=/dev/zero of=$(FINAL_IMG) bs=1M count=256
 
 	parted -s $(FINAL_IMG) mklabel msdos
@@ -28,9 +28,15 @@ img: stage1
 	dd if=$(STAGE1) of=$(FINAL_IMG) bs=1 count=3 seek=$$(($(PARTITION_START) * 512)) conv=notrunc
 	dd if=$(STAGE1) of=$(FINAL_IMG) bs=1 skip=90 seek=$$((($(PARTITION_START) * 512) + 90)) conv=notrunc
 
+	mcopy -i $(FINAL_IMG)@@$$(($(PARTITION_START) * 512)) $(STAGE2) ::/STAGE2.BIN
+
 stage1: $(STAGE1)
 $(STAGE1): always
 	$(AS) -f bin $(STAGE1_DIR)/boot.asm -o $(STAGE1)
+
+stage2: $(STAGE2)
+$(STAGE2): always
+	$(AS) -f bin $(STAGE2_DIR)/main.asm -o $(STAGE2)
 
 always:
 	mkdir -p $(BUILD)
