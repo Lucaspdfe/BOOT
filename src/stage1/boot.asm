@@ -206,7 +206,7 @@ start:
 
     mov [DAP_LBA_QWORD], eax                            ; LBA = eax
     mov dword [DAP_LBA_QWORD+4], 0
-    mov word [DAP_COUNT_WORD], 1                             ; Count = 1 sector
+    mov word [DAP_COUNT_WORD], 1                        ; Count = 1 sector
     mov word [DAP_OFFSET_WORD], 0x7E00
     mov word [DAP_SEGMENT_WORD], 0x0000                 ; address = 0x0000:0x7E00
     mov si, DAP
