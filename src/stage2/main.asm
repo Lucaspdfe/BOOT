@@ -1,15 +1,21 @@
-org 500h
 bits 16
 
-global main
+section .entry
 
-main:
+global entry
+
+extern _bss_start
+extern _bss_end
+
+extern _stack_end
+
+entry:
     ; set up stack and segments
     mov ax, 0
     mov ds, ax
     mov es, ax
     mov ss, ax
-    mov sp, 7C00h
+    mov sp, _stack_end
 
     mov [g_BootDrive], dl
 
@@ -75,7 +81,17 @@ PModeMain:
     mov ss, ax
     mov esp, 7C00h
 
-    mov [0xB8000], 0x0F41               ; print 'A'
+    ; clear BSS section
+    mov edi, _bss_start
+    mov ecx, _bss_end
+    sub ecx, edi
+    xor eax, eax
+    rep stosb
+
+    ; print 'A' to screen
+    mov [0xB8000], 0x0F41
+
+    ; welp, going to stop developing the bootloader and start doing the kernel, ts is boring :crying:
 
     jmp $
 

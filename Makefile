@@ -1,13 +1,15 @@
-CC=i686-elf-gcc
-LD=i686-elf-ld
+CC=gcc -m32
+CFLAGS=-ffreestanding -O2 -Wall -Wextra
+LD=ld -m elf_i386
 AS=nasm
 
-FINAL_IMG  = ./build/scratchboot.img
-STAGE1     = ./build/stage1.bin
-STAGE1_DIR = ./src/stage1
-STAGE2     = ./build/stage2.bin
-STAGE2_DIR = ./src/stage2
-BUILD  = ./build
+FINAL_IMG  	 = ./build/scratchboot.img
+STAGE1     	 = ./build/stage1.bin
+STAGE1_DIR 	 = ./src/stage1
+STAGE2     	 = ./build/stage2.bin
+STAGE2_DIR 	 = ./src/stage2
+STAGE2_BUILD = ./build/stage2
+BUILD  		 = ./build
 
 PARTITION_START = 2048
 
@@ -36,7 +38,10 @@ $(STAGE1): always
 
 stage2: $(STAGE2)
 $(STAGE2): always
-	$(AS) -f bin $(STAGE2_DIR)/main.asm -o $(STAGE2)
+	mkdir -p $(STAGE2_BUILD)
+	$(AS) -f elf32 $(STAGE2_DIR)/main.asm -o $(STAGE2_BUILD)/main.o
+	# build final stage2 binary ( $(stage2) )
+	$(LD) -T $(STAGE2_DIR)/linker.ld -Ttext 0x7C00 -o $(STAGE2) --oformat binary $(STAGE2_BUILD)/main.o
 
 always:
 	mkdir -p $(BUILD)
