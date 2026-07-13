@@ -1,5 +1,4 @@
 <h1 align="center">A BOOTloader for my OS</h1>
-
 <p align="center">
   <a href="https://github.com/Lucaspdfe/BOOT/releases">
     <img src="https://img.shields.io/github/v/release/Lucaspdfe/BOOT" />
