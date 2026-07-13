@@ -11,4 +11,6 @@
 
 <p align="center">A simple 64-bit bootloader for my Operating System.</p>
 
-<p align="center">WARNING! The development of BOOTloader has been paused to focus on the kernel!</p>
+<h2 align="center">How do I compile?</h2>
+
+<p>Information of compiling on <a href="BUILD.md">BUILD.md</a>.</p>

@@ -91,8 +91,6 @@ PModeMain:
     ; print 'A' to screen
     mov [0xB8000], 0x0F41
 
-    ; welp, going to stop developing the bootloader and start doing the kernel, ts is boring :crying:
-
     jmp $
 
 [bits 16]
